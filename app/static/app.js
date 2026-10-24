@@ -73,17 +73,11 @@ function toast(message) {
 // ---------- server status ----------
 
 async function refreshHealth() {
-  const status = $("#status");
   try {
     const health = await api("/health");
     $$("[data-threshold]").forEach((node) => (node.textContent = health.threshold.toFixed(2)));
-    status.className = "status ok";
-    status.title = `Database and face models are loaded (model: ${health.model})`;
-    $("#status-text").textContent = "Server ready";
   } catch {
-    status.className = "status bad";
-    status.title = "The server or its database is not responding";
-    $("#status-text").textContent = "Server unavailable";
+    /* the Live tab shows an error message when the server cannot be reached */
   }
 }
 
@@ -118,7 +112,7 @@ async function refreshEnrolled() {
   try {
     setEnrolled((await api("/employees")).length);
   } catch {
-    /* the status dot already shows server trouble */
+    /* the Live tab shows an error message when the server cannot be reached */
   }
 }
 
@@ -278,7 +272,7 @@ async function liveLoop() {
         form.append("frame", frame.blob, "frame.jpg");
         const result = await api("/recognize", { method: "POST", body: form });
         setTargets(result.faces, frame);
-        showLiveStats(result.faces, performance.now() - started);
+        showLiveStats(result.faces);
         setNotice("#live-notice", "");
       } catch (error) {
         if (activeTab === "live") setNotice("#live-notice", error.message);
@@ -362,8 +356,7 @@ function animateOverlay(now) {
 }
 requestAnimationFrame(animateOverlay);
 
-function showLiveStats(faces, roundTripMs) {
-  $("#stat-rtt").textContent = `${Math.round(roundTripMs)} ms`;
+function showLiveStats(faces) {
   $("#stat-faces").textContent = faces.length;
 
   let changed = false;
@@ -472,7 +465,7 @@ async function loadAttendance(quiet = false) {
   try {
     const data = await api(day ? `/attendance?day=${encodeURIComponent(day)}` : "/attendance");
     $("#day").value = data.day; // first load: show the server's idea of "today"
-    $("#counts").textContent = `${data.present.length} present · ${data.absent.length} absent`;
+    $("#counts").textContent = `${data.present.length} present`;
 
     const body = $("#present-body");
     body.replaceChildren();
@@ -490,12 +483,6 @@ async function loadAttendance(quiet = false) {
       body.append(row);
     }
 
-    const absent = $("#absent-list");
-    absent.replaceChildren(...data.absent.map((person) => el("li", "", person.name)));
-    if (!data.absent.length) {
-      const noEmployees = !data.present.length;
-      absent.append(el("li", "muted", noEmployees ? "No employees yet. Enroll someone on the Employees tab." : "Nobody is absent."));
-    }
     setNotice("#att-notice", "");
 
     if (data.present.length && activeTab === "attendance" && !recall("sessionStorage", "attendanceChecked")) {

@@ -46,12 +46,6 @@ nav { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
 .tab:hover { color: var(--text); }
 .tab.active { background: var(--bg); color: var(--text); }
 
-.status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
-.status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
-.status.ok .status-dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
-.status.bad .status-dot { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
-.status.bad { color: var(--danger); }
-
 main { max-width: 1100px; width: 100%; margin: 0 auto; padding: 24px 16px; flex: 1; }
 
 footer { text-align: center; color: var(--muted); font-size: 13px; padding: 20px 16px 28px; }

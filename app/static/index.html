@@ -15,9 +15,6 @@
       <button class="tab" data-tab="employees" data-admin hidden>Employees</button>
       <button class="tab" data-tab="attendance" data-admin hidden>Attendance</button>
     </nav>
-    <span id="status" class="status" title="Checking the server...">
-      <span class="status-dot"></span><span id="status-text">Checking server</span>
-    </span>
     <button id="admin-toggle" class="ghost" title="Show the Employees and Attendance tabs">Try Admin</button>
   </header>
 
@@ -56,10 +53,8 @@
 
           <h2>Pipeline</h2>
           <dl class="stats">
-            <dt>Round trip</dt><dd id="stat-rtt">-</dd>
             <dt>Faces in frame</dt><dd id="stat-faces">-</dd>
           </dl>
-          <p class="muted small">Each frame goes browser &rarr; FastAPI &rarr; OpenCV (YuNet + SFace) &rarr; pgvector search &rarr; back.</p>
         </aside>
       </div>
     </section>
@@ -69,7 +64,7 @@
       <div class="card guide">
         <details open>
           <summary>What is this?</summary>
-          <p>Face Attendance is a demo of an attendance system that uses face recognition. Point a webcam at yourself and it works out who you are and records that you are <strong>present</strong> for the day. People who are enrolled but have not been seen yet are <strong>absent</strong>.</p>
+          <p>Face Attendance is a demo of an attendance system that uses face recognition. Point a webcam at yourself and it works out who you are and records that you are <strong>present</strong> for the day.</p>
           <p>It is a backend and AI portfolio project: a web server, a database and a face-recognition model working together, with this page as the control panel.</p>
         </details>
 
@@ -100,7 +95,7 @@
         <details>
           <summary>What the colors and numbers mean</summary>
           <p><span class="swatch ok"></span> A <strong>green box</strong> is a recognized employee. <span class="swatch warn"></span> An <strong>orange box</strong> is a face the system does not know.</p>
-          <p>The number next to the name is the <strong>match score</strong>, between 0 and 1. A score of 1 means identical face prints, and around 0 means unrelated faces. The system accepts a match at <strong><span data-threshold>0.40</span> or higher</strong>. In the author's tests with two people, the same person usually scored 0.6 to 0.9 and different people about 0.1 to 0.3.</p>
+          <p>The number next to the name is the <strong>match score</strong>, between 0 and 1. A score of 1 means identical face prints, and around 0 means unrelated faces. The system accepts a match at <strong><span data-threshold>0.40</span> or higher</strong>.</p>
         </details>
 
         <details>
@@ -109,25 +104,6 @@
           <p><strong>Delete</strong> on the Employees tab removes a person, their face print and their attendance records. <strong>Clear all data</strong> removes everyone.</p>
         </details>
 
-        <details>
-          <summary>Limits to know about</summary>
-          <ul>
-            <li>A <strong>photo of someone held up to the camera can fool it</strong>. There is no check that the face is a real, live person.</li>
-            <li>There is <strong>no login</strong>. "Try Admin" only shows tabs, and anyone who can reach the server can use every function.</li>
-            <li>One clear match is enough to mark someone present.</li>
-            <li>Accuracy was checked on a small test. Do not use this for real security or payroll.</li>
-          </ul>
-        </details>
-
-        <details>
-          <summary>Under the hood</summary>
-          <p>Built with <strong>FastAPI</strong> (Python), <strong>OpenCV</strong> (YuNet and SFace models), <strong>PostgreSQL with pgvector</strong>, and plain HTML, CSS and JavaScript for this page. It runs in Docker.</p>
-          <p>
-            <a href="/docs" target="_blank" rel="noopener">API documentation</a> &middot;
-            <a href="https://github.com/YusufMysara/face-attendance" target="_blank" rel="noopener">Source code on GitHub</a> &middot;
-            <a href="https://github.com/YusufMysara" target="_blank" rel="noopener">Author on GitHub</a>
-          </p>
-        </details>
       </div>
     </section>
 
@@ -177,28 +153,20 @@
         </div>
         <p class="muted small definitions">
           <strong>Present:</strong> recognized at least once that day. <strong>First seen:</strong> the time of that first recognition.
-          <strong>Score:</strong> how close the match was (0 to 1). <strong>Absent:</strong> enrolled, but not seen that day.
+          <strong>Score:</strong> how close the match was (0 to 1).
         </p>
         <p id="att-notice" class="notice" hidden></p>
-        <div class="columns">
-          <div>
-            <h2>Present</h2>
-            <table>
-              <thead><tr><th>Name</th><th>First seen</th><th>Score</th></tr></thead>
-              <tbody id="present-body"></tbody>
-            </table>
-          </div>
-          <div>
-            <h2>Absent</h2>
-            <ul id="absent-list" class="list"></ul>
-          </div>
-        </div>
+        <h2>Present</h2>
+        <table>
+          <thead><tr><th>Name</th><th>First seen</th><th>Score</th></tr></thead>
+          <tbody id="present-body"></tbody>
+        </table>
       </div>
     </section>
   </main>
 
   <footer>
-    Built by <a href="https://github.com/YusufMysara" target="_blank" rel="noopener">@YusufMysara</a> with FastAPI &middot; OpenCV (YuNet + SFace) &middot; PostgreSQL + pgvector &middot;
+    Built by <a href="https://github.com/YusufMysara" target="_blank" rel="noopener">@YusufMysara</a> &middot;
     <a href="/docs" target="_blank" rel="noopener">API docs</a> &middot;
     <a href="https://github.com/YusufMysara/face-attendance" target="_blank" rel="noopener">Source code</a>
   </footer>
