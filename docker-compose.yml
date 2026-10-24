@@ -1,0 +1,43 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      # Defaults let `docker compose up` work with no .env file. The database is published on
+      # 127.0.0.1 only, so this known password is reachable from your own machine alone.
+      # To use your own values, create a .env file (see .env.example).
+      POSTGRES_USER: ${POSTGRES_USER:-attendance}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-attendance}
+    ports:
+      - "127.0.0.1:5433:5432"  # this machine only
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy  # wait until the database really accepts connections
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-attendance}  # the same defaults as the db service above
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-attendance}
+      POSTGRES_HOST: db  # the database container, reached over Docker's internal network
+      POSTGRES_PORT: "5432"  # inside Docker it is 5432; 5433 is only the number published to this machine
+      TIMEZONE: ${TIMEZONE:-}  # optional, e.g. Europe/Berlin; empty = the container's local time (UTC)
+    ports:
+      - "127.0.0.1:8000:8000"  # this machine only; open http://localhost:8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  pgdata:

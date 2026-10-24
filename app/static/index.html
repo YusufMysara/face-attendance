@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Face Attendance</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="dot"></span>Face Attendance</div>
+    <nav>
+      <button class="tab active" data-tab="live">Live</button>
+      <button class="tab" data-tab="employees" data-admin hidden>Employees</button>
+      <button class="tab" data-tab="attendance" data-admin hidden>Attendance</button>
+    </nav>
+    <button id="admin-toggle" class="ghost">Try Admin</button>
+  </header>
+
+  <main>
+    <!-- LIVE -->
+    <section id="tab-live" class="panel">
+      <div class="layout">
+        <div class="card">
+          <div class="frame" id="live-frame">
+            <video id="live-video" autoplay playsinline muted></video>
+            <canvas id="overlay"></canvas>
+          </div>
+          <p id="live-notice" class="notice" hidden></p>
+        </div>
+        <aside class="card">
+          <h2>Recognized this session</h2>
+          <ul id="live-seen" class="list"><li class="muted">Nobody yet. Look at the camera.</li></ul>
+          <h2>Pipeline</h2>
+          <dl class="stats">
+            <dt>Round trip</dt><dd id="stat-rtt">-</dd>
+            <dt>Faces in frame</dt><dd id="stat-faces">-</dd>
+          </dl>
+          <p class="muted small">Each frame goes browser &rarr; FastAPI &rarr; OpenCV (YuNet + SFace) &rarr; pgvector search &rarr; back.</p>
+        </aside>
+      </div>
+    </section>
+
+    <!-- EMPLOYEES -->
+    <section id="tab-employees" class="panel" hidden>
+      <div class="layout">
+        <div class="card">
+          <div class="frame" id="enroll-frame">
+            <video id="enroll-video" autoplay playsinline muted></video>
+          </div>
+          <form id="enroll-form">
+            <input id="employee-name" type="text" placeholder="Employee name" maxlength="100" required>
+            <button id="enroll-button" type="submit">Capture &amp; enroll</button>
+          </form>
+          <p class="muted small">One photo is stored as a 128-number embedding. Face the camera in good light.</p>
+          <p id="enroll-notice" class="notice" hidden></p>
+        </div>
+        <aside class="card">
+          <h2>Enrolled employees</h2>
+          <ul id="employee-list" class="list"></ul>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ATTENDANCE -->
+    <section id="tab-attendance" class="panel" hidden>
+      <div class="card">
+        <div class="toolbar">
+          <label>Day <input id="day" type="date"></label>
+          <span id="counts" class="muted"></span>
+        </div>
+        <p id="att-notice" class="notice" hidden></p>
+        <div class="columns">
+          <div>
+            <h2>Present</h2>
+            <table>
+              <thead><tr><th>Name</th><th>First seen</th><th>Score</th></tr></thead>
+              <tbody id="present-body"></tbody>
+            </table>
+          </div>
+          <div>
+            <h2>Absent</h2>
+            <ul id="absent-list" class="list"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>

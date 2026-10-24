@@ -1,0 +1,20 @@
+# Secrets and local settings. The .env.example template IS committed.
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+
+# Personal build log: kept locally, not published
+PROGRESS.md
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
