@@ -62,6 +62,7 @@ aside h2:not(:first-child) { margin-top: 20px; }
   margin-bottom: 16px; padding: 12px 16px; border-radius: 12px;
   background: rgba(91, 140, 255, 0.12); border: 1px solid var(--accent);
 }
+.banner.privacy { background: rgba(46, 204, 113, 0.10); border-color: var(--ok); }
 
 /* Camera: the video is mirrored like a selfie camera; the overlay canvas is not, boxes are mirrored in JS. */
 .frame { position: relative; width: 100%; aspect-ratio: 4 / 3; background: #000; border-radius: 10px; overflow: hidden; }

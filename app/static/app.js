@@ -129,6 +129,16 @@ function renderChecklist() {
   $("#checklist-done").hidden = current !== -1;
 }
 
+// The privacy banners link to the "How recognition works" section of the Guide.
+$$("[data-how-it-works]").forEach((button) =>
+  button.addEventListener("click", () => {
+    showTab("guide");
+    const section = $("#how-it-works");
+    section.open = true;
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+  }),
+);
+
 $("#show-me").addEventListener("click", () => {
   setAdmin(true);
   showTab("employees");

@@ -21,6 +21,10 @@
   <main>
     <!-- LIVE -->
     <section id="tab-live" class="panel">
+      <div class="banner privacy">
+        <span><strong>Your privacy:</strong> camera pictures are analyzed and immediately discarded. Nothing is saved.</span>
+        <button class="link" data-how-it-works>See how it works &rarr;</button>
+      </div>
       <div id="none-enrolled" class="banner" hidden>
         <span><strong>Nobody is enrolled yet,</strong> so every face shows as "Unknown".</span>
         <button id="show-me" class="link">Show me how to enroll &rarr;</button>
@@ -78,7 +82,7 @@
           </ol>
         </details>
 
-        <details>
+        <details id="how-it-works">
           <summary>How recognition works</summary>
           <ol class="flow">
             <li>Camera</li>
@@ -88,7 +92,7 @@
             <li>Compared</li>
             <li>Name</li>
           </ol>
-          <p>Up to 4 times a second, this page sends a picture from the camera to the server. A detector (<strong>YuNet</strong>) finds the faces. A second model (<strong>SFace</strong>) turns each face into a list of 128 numbers, a kind of "face print". Faces of the same person give similar numbers.</p>
+          <p>Up to 4 times a second, this page sends a picture from the camera to the server. A detector (<strong>YuNet</strong>) finds the faces. A second model (<strong>SFace</strong>) turns each face into a list of 128 numbers, a kind of "face print". Faces of the same person give similar numbers. As soon as the numbers are made, <strong>the picture is discarded</strong>; it is never saved.</p>
           <p>The database (<strong>PostgreSQL with pgvector</strong>) looks for the stored face print that is closest to the new one. If it is close enough, the person is recognized and, if it is their first sighting of the day, attendance is recorded. If not, the face is shown as "Unknown".</p>
         </details>
 
@@ -109,6 +113,10 @@
 
     <!-- EMPLOYEES -->
     <section id="tab-employees" class="panel" hidden>
+      <div class="banner privacy">
+        <span><strong>Your privacy:</strong> your photo is turned into 128 numbers and immediately discarded. Only the name and those numbers are saved, never the picture.</span>
+        <button class="link" data-how-it-works>See how it works &rarr;</button>
+      </div>
       <div class="layout">
         <div class="card">
           <div class="frame" id="enroll-frame">

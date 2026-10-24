@@ -4,6 +4,7 @@ A webcam attendance system. Enroll a person with one photo; from then on, anyone
 
 It is a backend + AI portfolio project: a FastAPI service that runs face detection and recognition (OpenCV), stores face embeddings in PostgreSQL with pgvector, and serves a small web UI that shows the live camera.
 
+**Live demo: <https://face-recognition-4217.up.railway.app>** (it sleeps when idle, so the first load can take a few seconds)
 
 ## Try it
 

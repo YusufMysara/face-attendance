@@ -5,5 +5,3 @@
 .pytest_cache
 tests
 PROGRESS.md
-results
-data

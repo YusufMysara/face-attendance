@@ -13,6 +13,10 @@ __pycache__/
 # Personal build log: kept locally, not published
 PROGRESS.md
 
+# Local logs and the hosting CLI's link to my account's project
+*.log
+.railway/
+
 # Editors and operating systems
 .vscode/
 .idea/
