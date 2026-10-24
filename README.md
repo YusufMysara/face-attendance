@@ -1,4 +1,4 @@
-# Face Attendance
+﻿# Face Attendance
 
 A webcam attendance system. Enroll a person with one photo; from then on, anyone who faces the camera is recognized and marked **present** for the day. Enrolled people who haven't been seen are **absent**.
 
@@ -35,13 +35,13 @@ That's all: no configuration file is needed. When the output settles, open <http
 3. **Live**: the camera shows your face with a box, your name and a similarity score. The first sighting of the day is recorded.
 4. **Attendance**: present and absent lists for any day.
 
-Interactive API docs: <http://localhost:8000/docs>
+First-time visitors get a welcome card and a **Guide** tab inside the app, and a checklist on the Live tab that ticks off as you go. Interactive API docs: <http://localhost:8000/docs>
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    Browser["Browser<br/>live camera + UI"] -- "JPEG frame, ~13/s" --> API
+    Browser["Browser<br/>live camera + UI"] -- "JPEG frame, up to ~4/s" --> API
     subgraph App["FastAPI app"]
         API["api<br/>routes, schemas"] --> Services["services<br/>enroll, match, attendance"]
         Services --> AI["ai<br/>OpenCV: YuNet + SFace"]
@@ -52,7 +52,7 @@ flowchart LR
 
 **Recognition pipeline** (`POST /recognize`):
 
-1. The browser copies a camera frame, shrinks it to 640 px wide, encodes a JPEG and uploads it. It sends the next frame only after the previous answer arrives, so slow responses never build a queue.
+1. The browser copies a camera frame, shrinks it to 480 px wide, encodes a JPEG and uploads it. It sends the next frame only after the previous answer arrives, so slow responses never build a queue.
 2. **YuNet** finds every face and its five landmarks. **SFace** aligns each face and turns it into a 128-number embedding.
 3. PostgreSQL finds the closest stored embedding with pgvector (`ORDER BY embedding <=> :query`, cosine distance).
 4. If the similarity is at least the threshold (default 0.40), the face is a known employee and the first sighting of the day is recorded. Otherwise it is shown as "Unknown".
@@ -90,10 +90,11 @@ Machine: laptop with an Intel i7-1255U, CPU only, no GPU.
 
 | Measure | Result |
 |---|---|
-| Accuracy on **LFW** (public benchmark), 1,200 of its 6,000 pairs | **98.75% ± 0.35**, 0 wrong accepts, 1.5% missed matches. The model authors publish 99.60% on the full set. |
+| Accuracy on **LFW** (public benchmark), 1,200 of its 6,000 pairs | **98.75% Â± 0.35**, 0 wrong accepts, 1.5% missed matches. The model authors publish 99.60% on the full set. |
 | Same-person similarity on my webcam (two people) | mean 0.80 and 0.60 |
 | Different-person similarity on my webcam | mean 0.17, highest 0.333 out of 224 pairs |
-| Face analysis per frame, live | about 50 ms median (one face), about 13 frames per second end to end |
+| Face analysis per frame, live | about 50 ms median (one face) with default threading; 33 ms with one OpenCV thread. The page sends at most ~4 frames per second |
+| 1 vCPU / 512 MB container (Docker limits) | about 205 MB RAM with a live camera; one viewer at full speed used ~73% of the CPU, so the page throttles to ~4 frames per second (150 ms measured at 30-45% CPU; 250 ms is lighter still) |
 | Docker vs native | no slowdown seen on a blank frame (26-32 ms in the container) |
 
 How much to trust this: the accuracy run used 2 of 10 benchmark folds, and the webcam test used two people in one session (its 224 pairs come from only 30 frames), so these show that the system works, not what its error rate is. The benchmark script was a throwaway and is **not** in this repository. I also tried InsightFace; it was very slow on this machine in two runs for a reason I did not find, and I never finished its accuracy run, so I make **no claim** that OpenCV is more accurate, only that it was accurate enough, faster and lighter here.
@@ -134,16 +135,18 @@ Tests (need the database container running; they use their own `attendance_test`
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | `attendance`, `change-me`, `attendance` (set in `docker-compose.yml`; the same values as `.env.example`) | Database credentials. Optional with Docker; needed in `.env` when you run the app or the tests outside Docker |
 | `POSTGRES_HOST`, `POSTGRES_PORT` | `127.0.0.1`, `5433` | Where the app finds PostgreSQL (Docker sets `db`, `5432`) |
 | `MATCH_THRESHOLD` | `0.40` | Minimum cosine similarity to accept a face |
+| `PORT` | `8000` | Port the server listens on inside the container (hosting platforms set it) |
 | `TIMEZONE` | local time | Decides when a new attendance day starts, e.g. `Europe/Berlin` |
 
 ## API
 
 | Endpoint | Description |
 |---|---|
-| `GET /health` | Checks the database and the models; 503 if either is down |
+| `GET /health` | Checks the database and the models and reports the current match threshold; 503 if either is down |
 | `POST /employees` | Enroll: form fields `name` and `photo`. 409 if the face is already enrolled, 422 if the photo is unusable |
 | `GET /employees` | List employees |
 | `DELETE /employees/{id}` | Delete an employee and, by cascade, their embeddings and attendance |
+| `DELETE /employees` | Delete everyone (the "Clear all data" button) |
 | `POST /recognize` | Upload a camera frame (`frame`); returns each face's box, name and similarity, and whether attendance was newly recorded |
 | `GET /attendance?day=YYYY-MM-DD` | Present and absent lists (default: today) |
 

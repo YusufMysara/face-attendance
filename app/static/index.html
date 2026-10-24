@@ -11,26 +11,49 @@
     <div class="brand"><span class="dot"></span>Face Attendance</div>
     <nav>
       <button class="tab active" data-tab="live">Live</button>
+      <button class="tab" data-tab="guide">Guide</button>
       <button class="tab" data-tab="employees" data-admin hidden>Employees</button>
       <button class="tab" data-tab="attendance" data-admin hidden>Attendance</button>
     </nav>
-    <button id="admin-toggle" class="ghost">Try Admin</button>
+    <span id="status" class="status" title="Checking the server...">
+      <span class="status-dot"></span><span id="status-text">Checking server</span>
+    </span>
+    <button id="admin-toggle" class="ghost" title="Show the Employees and Attendance tabs">Try Admin</button>
   </header>
 
   <main>
     <!-- LIVE -->
     <section id="tab-live" class="panel">
+      <div id="none-enrolled" class="banner" hidden>
+        <span><strong>Nobody is enrolled yet,</strong> so every face shows as "Unknown".</span>
+        <button id="show-me" class="link">Show me how to enroll &rarr;</button>
+      </div>
       <div class="layout">
         <div class="card">
           <div class="frame" id="live-frame">
             <video id="live-video" autoplay playsinline muted></video>
             <canvas id="overlay"></canvas>
+            <div class="gate" hidden>
+              <p class="gate-title">Camera needed</p>
+              <p class="gate-text"></p>
+              <button class="start-camera">Start camera</button>
+            </div>
           </div>
           <p id="live-notice" class="notice" hidden></p>
+          <div class="legend">
+            <span><i class="swatch ok"></i>Recognized employee</span>
+            <span><i class="swatch warn"></i>Unknown face</span>
+            <span class="muted">The number is the match score from 0 to 1. <span data-threshold>0.40</span> or higher counts as a match.</span>
+          </div>
         </div>
         <aside class="card">
+          <h2>Get started</h2>
+          <ol id="checklist" class="checklist"></ol>
+          <p id="checklist-done" class="muted small" hidden>All done. Open the <strong>Guide</strong> tab to see how it works.</p>
+
           <h2>Recognized this session</h2>
-          <ul id="live-seen" class="list"><li class="muted">Nobody yet. Look at the camera.</li></ul>
+          <ul id="live-seen" class="list"></ul>
+
           <h2>Pipeline</h2>
           <dl class="stats">
             <dt>Round trip</dt><dd id="stat-rtt">-</dd>
@@ -41,23 +64,106 @@
       </div>
     </section>
 
+    <!-- GUIDE -->
+    <section id="tab-guide" class="panel" hidden>
+      <div class="card guide">
+        <details open>
+          <summary>What is this?</summary>
+          <p>Face Attendance is a demo of an attendance system that uses face recognition. Point a webcam at yourself and it works out who you are and records that you are <strong>present</strong> for the day. People who are enrolled but have not been seen yet are <strong>absent</strong>.</p>
+          <p>It is a backend and AI portfolio project: a web server, a database and a face-recognition model working together, with this page as the control panel.</p>
+        </details>
+
+        <details open>
+          <summary>Try it in four steps</summary>
+          <ol>
+            <li>Click <strong>Try Admin</strong> at the top right. There is no password; it only shows the <strong>Employees</strong> and <strong>Attendance</strong> tabs.</li>
+            <li>Open <strong>Employees</strong>, type your name, face the camera and click <strong>Capture &amp; enroll</strong>. One photo is enough.</li>
+            <li>Go to <strong>Live</strong>. Your face gets a green box with your name. The first time you are seen on a day, you are marked present.</li>
+            <li>Open <strong>Attendance</strong>. You appear under <strong>Present</strong> with the time you were first seen.</li>
+          </ol>
+        </details>
+
+        <details>
+          <summary>How recognition works</summary>
+          <ol class="flow">
+            <li>Camera</li>
+            <li>Server</li>
+            <li>Face found</li>
+            <li>128 numbers</li>
+            <li>Compared</li>
+            <li>Name</li>
+          </ol>
+          <p>Up to 4 times a second, this page sends a picture from the camera to the server. A detector (<strong>YuNet</strong>) finds the faces. A second model (<strong>SFace</strong>) turns each face into a list of 128 numbers, a kind of "face print". Faces of the same person give similar numbers.</p>
+          <p>The database (<strong>PostgreSQL with pgvector</strong>) looks for the stored face print that is closest to the new one. If it is close enough, the person is recognized and, if it is their first sighting of the day, attendance is recorded. If not, the face is shown as "Unknown".</p>
+        </details>
+
+        <details>
+          <summary>What the colors and numbers mean</summary>
+          <p><span class="swatch ok"></span> A <strong>green box</strong> is a recognized employee. <span class="swatch warn"></span> An <strong>orange box</strong> is a face the system does not know.</p>
+          <p>The number next to the name is the <strong>match score</strong>, between 0 and 1. A score of 1 means identical face prints, and around 0 means unrelated faces. The system accepts a match at <strong><span data-threshold>0.40</span> or higher</strong>. In the author's tests with two people, the same person usually scored 0.6 to 0.9 and different people about 0.1 to 0.3.</p>
+        </details>
+
+        <details>
+          <summary>What is stored</summary>
+          <p>Only the person's <strong>name</strong> and their <strong>128-number face print</strong>. Your photo and the camera pictures are analyzed and then discarded; they are not saved in the database.</p>
+          <p><strong>Delete</strong> on the Employees tab removes a person, their face print and their attendance records. <strong>Clear all data</strong> removes everyone.</p>
+        </details>
+
+        <details>
+          <summary>Limits to know about</summary>
+          <ul>
+            <li>A <strong>photo of someone held up to the camera can fool it</strong>. There is no check that the face is a real, live person.</li>
+            <li>There is <strong>no login</strong>. "Try Admin" only shows tabs, and anyone who can reach the server can use every function.</li>
+            <li>One clear match is enough to mark someone present.</li>
+            <li>Accuracy was checked on a small test. Do not use this for real security or payroll.</li>
+          </ul>
+        </details>
+
+        <details>
+          <summary>Under the hood</summary>
+          <p>Built with <strong>FastAPI</strong> (Python), <strong>OpenCV</strong> (YuNet and SFace models), <strong>PostgreSQL with pgvector</strong>, and plain HTML, CSS and JavaScript for this page. It runs in Docker.</p>
+          <p>
+            <a href="/docs" target="_blank" rel="noopener">API documentation</a> &middot;
+            <a href="https://github.com/YusufMysara/face-attendance" target="_blank" rel="noopener">Source code on GitHub</a> &middot;
+            <a href="https://github.com/YusufMysara" target="_blank" rel="noopener">Author on GitHub</a>
+          </p>
+        </details>
+      </div>
+    </section>
+
     <!-- EMPLOYEES -->
     <section id="tab-employees" class="panel" hidden>
       <div class="layout">
         <div class="card">
           <div class="frame" id="enroll-frame">
             <video id="enroll-video" autoplay playsinline muted></video>
+            <div class="gate" hidden>
+              <p class="gate-title">Camera needed</p>
+              <p class="gate-text"></p>
+              <button class="start-camera">Start camera</button>
+            </div>
           </div>
           <form id="enroll-form">
             <input id="employee-name" type="text" placeholder="Employee name" maxlength="100" required>
             <button id="enroll-button" type="submit">Capture &amp; enroll</button>
           </form>
-          <p class="muted small">One photo is stored as a 128-number embedding. Face the camera in good light.</p>
           <p id="enroll-notice" class="notice" hidden></p>
+          <div class="tips">
+            <strong>Tips for a good photo</strong>
+            <ul>
+              <li>Face the camera and keep your whole face in view.</li>
+              <li>Use even light: a window in front of you, not behind you.</li>
+              <li>Make sure you are the only person in the picture.</li>
+              <li>Take off anything that covers your face.</li>
+            </ul>
+            <p class="muted small">The photo is turned into 128 numbers and then discarded. The same face cannot be enrolled twice.</p>
+          </div>
         </div>
         <aside class="card">
-          <h2>Enrolled employees</h2>
+          <h2>Enrolled employees <span id="employee-count" class="muted"></span></h2>
           <ul id="employee-list" class="list"></ul>
+          <button id="clear-all" class="danger wide">Clear all data</button>
+          <p class="muted small">Delete removes a person, their face print and their attendance. Clear all data removes everyone.</p>
         </aside>
       </div>
     </section>
@@ -69,6 +175,10 @@
           <label>Day <input id="day" type="date"></label>
           <span id="counts" class="muted"></span>
         </div>
+        <p class="muted small definitions">
+          <strong>Present:</strong> recognized at least once that day. <strong>First seen:</strong> the time of that first recognition.
+          <strong>Score:</strong> how close the match was (0 to 1). <strong>Absent:</strong> enrolled, but not seen that day.
+        </p>
         <p id="att-notice" class="notice" hidden></p>
         <div class="columns">
           <div>
@@ -87,7 +197,31 @@
     </section>
   </main>
 
+  <footer>
+    Built by <a href="https://github.com/YusufMysara" target="_blank" rel="noopener">@YusufMysara</a> with FastAPI &middot; OpenCV (YuNet + SFace) &middot; PostgreSQL + pgvector &middot;
+    <a href="/docs" target="_blank" rel="noopener">API docs</a> &middot;
+    <a href="https://github.com/YusufMysara/face-attendance" target="_blank" rel="noopener">Source code</a>
+  </footer>
+
   <div id="toast" class="toast" hidden></div>
+
+  <div id="welcome" class="modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title" hidden>
+    <div class="modal-card">
+      <h1 id="welcome-title">Welcome to Face Attendance</h1>
+      <p>This is a demo of an attendance system that recognizes faces through your webcam. When someone enrolled looks at the camera, they are marked <strong>present</strong> for the day.</p>
+      <ol>
+        <li>Click <strong>Try Admin</strong> (top right).</li>
+        <li>Open <strong>Employees</strong> and enroll yourself with one photo.</li>
+        <li>Go back to <strong>Live</strong> and look at the camera.</li>
+      </ol>
+      <p class="muted small">Your camera pictures are analyzed by this server and are not saved. Only a name and 128 numbers are stored for each enrolled person.</p>
+      <div class="modal-actions">
+        <button id="welcome-ok">Got it</button>
+        <button id="welcome-guide" class="ghost">Read the guide</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>

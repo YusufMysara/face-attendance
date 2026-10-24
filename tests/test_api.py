@@ -34,7 +34,12 @@ def recognize(client, engine, *vectors):
 def test_health_reports_database_and_models(client):
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "database": True, "models": True, "model": "sface_2021dec"}
+    assert response.json() == {"status": "ok", "database": True, "models": True, "model": "sface_2021dec", "threshold": 0.4}
+
+
+def test_health_reports_the_configured_threshold(client, monkeypatch):
+    monkeypatch.setenv("MATCH_THRESHOLD", "0.55")
+    assert client.get("/health").json()["threshold"] == 0.55
 
 
 # ---------- employees ----------
@@ -47,6 +52,22 @@ def test_enroll_list_and_delete_an_employee(client, engine):
     assert client.get("/employees").json() == [{"id": employee_id, "name": "Sara"}]
     assert client.delete(f"/employees/{employee_id}").status_code == 204
     assert client.get("/employees").json() == []
+
+
+def test_clear_all_removes_every_employee_and_their_attendance(client, engine):
+    enroll(client, engine, "Sara", embedding(1))
+    enroll(client, engine, "Omar", embedding(2))
+    recognize(client, engine, near(embedding(1)))  # Sara is now present today
+
+    assert client.delete("/employees").status_code == 204
+
+    assert client.get("/employees").json() == []
+    report = client.get("/attendance").json()
+    assert report["present"] == [] and report["absent"] == []
+
+
+def test_clearing_an_empty_system_is_fine(client):
+    assert client.delete("/employees").status_code == 204
 
 
 def test_deleting_an_unknown_employee_is_404(client):

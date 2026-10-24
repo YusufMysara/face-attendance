@@ -1,11 +1,13 @@
 "use strict";
 
-const FRAME_INTERVAL_MS = 50; // minimum time between two frames; in practice the server's answer time (~150 ms) sets the pace
+const FRAME_INTERVAL_MS = 250; // minimum time between two frames (~4 per second at most); keeps one viewer from using a whole CPU on a small host
 const BOX_SMOOTHING_MS = 60; // boxes close ~63% of the gap to their target every this many milliseconds
-const MAX_FRAME_WIDTH = 640; // frames are shrunk to this width before sending
+const MAX_FRAME_WIDTH = 480; // frames are shrunk to this width before sending
 const ATTENDANCE_REFRESH_MS = 5000;
+const HEALTH_REFRESH_MS = 15000;
 
 const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => document.querySelectorAll(selector);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Names come from users, so we always build elements with textContent, never innerHTML.
@@ -16,19 +18,25 @@ function el(tag, className, text) {
   return node;
 }
 
-// ---------- admin mode ----------
-// A demo switch, not security: it only shows or hides the Employees and Attendance tabs.
-
-const adminButton = $("#admin-toggle");
-
-function setAdmin(on) {
-  sessionStorage.setItem("adminMode", on ? "1" : "");
-  document.querySelectorAll("[data-admin]").forEach((node) => (node.hidden = !on));
-  adminButton.textContent = on ? "Exit admin" : "Try Admin";
-  if (!on && activeTab !== "live") showTab("live");
+// Small browser memory. Optional: if storage is blocked, the page still works, it just forgets.
+function recall(area, key) {
+  try {
+    return window[area].getItem(key);
+  } catch {
+    return null;
+  }
+}
+function remember(area, key, value) {
+  try {
+    window[area].setItem(key, value);
+  } catch {
+    /* storage blocked: ignore */
+  }
 }
 
-adminButton.addEventListener("click", () => setAdmin(!sessionStorage.getItem("adminMode")));
+const state = { enrolled: 0 };
+const seen = new Map(); // name -> time first recognized in this browser session
+let activeTab = "live";
 
 // ---------- talking to the API ----------
 
@@ -62,39 +70,157 @@ function toast(message) {
   toastTimer = setTimeout(() => (node.hidden = true), 2500);
 }
 
+// ---------- server status ----------
+
+async function refreshHealth() {
+  const status = $("#status");
+  try {
+    const health = await api("/health");
+    $$("[data-threshold]").forEach((node) => (node.textContent = health.threshold.toFixed(2)));
+    status.className = "status ok";
+    status.title = `Database and face models are loaded (model: ${health.model})`;
+    $("#status-text").textContent = "Server ready";
+  } catch {
+    status.className = "status bad";
+    status.title = "The server or its database is not responding";
+    $("#status-text").textContent = "Server unavailable";
+  }
+}
+
+// ---------- admin mode ----------
+// A demo switch, not security: it only shows or hides the Employees and Attendance tabs.
+
+const adminButton = $("#admin-toggle");
+const adminOn = () => Boolean(recall("sessionStorage", "adminMode"));
+
+function setAdmin(on) {
+  remember("sessionStorage", "adminMode", on ? "1" : "");
+  $$("[data-admin]").forEach((node) => (node.hidden = !on));
+  adminButton.textContent = on ? "Exit admin" : "Try Admin";
+  adminButton.title = on
+    ? "Hide the Employees and Attendance tabs"
+    : "Show the Employees and Attendance tabs (no password: this is a demo)";
+  if (!on && (activeTab === "employees" || activeTab === "attendance")) showTab("live");
+  renderChecklist();
+}
+
+adminButton.addEventListener("click", () => setAdmin(!adminOn()));
+
+// ---------- getting started: banner, checklist ----------
+
+function setEnrolled(count) {
+  state.enrolled = count;
+  $("#none-enrolled").hidden = count > 0;
+  renderChecklist();
+}
+
+async function refreshEnrolled() {
+  try {
+    setEnrolled((await api("/employees")).length);
+  } catch {
+    /* the status dot already shows server trouble */
+  }
+}
+
+function renderChecklist() {
+  const steps = [
+    ["Click Try Admin (top right) to unlock the Employees tab", adminOn()],
+    ["Open Employees and enroll yourself with one photo", state.enrolled > 0],
+    ["Come back to Live and look at the camera", seen.size > 0],
+    ["Open Attendance and find yourself under Present", Boolean(recall("sessionStorage", "attendanceChecked"))],
+  ];
+  const current = steps.findIndex(([, done]) => !done);
+  const list = $("#checklist");
+  list.replaceChildren(...steps.map(([text, done], index) => el("li", done ? "done" : index === current ? "current" : "", text)));
+  $("#checklist-done").hidden = current !== -1;
+}
+
+$("#show-me").addEventListener("click", () => {
+  setAdmin(true);
+  showTab("employees");
+});
+
 // ---------- camera ----------
 
 let stream = null;
+const GATE_TEXT = "Face Attendance uses your camera to find faces. Each picture is analyzed by this server and is not kept.";
+
+function cameraMessage(error) {
+  switch (error.name) {
+    case "InsecureContext":
+      return "This address cannot use the camera. Open the page as http://localhost:8000 (browsers block cameras on other plain-HTTP addresses).";
+    case "NotAllowedError":
+    case "SecurityError":
+      return "The camera is blocked. Click the camera icon in the address bar, choose Allow, then press Try again.";
+    case "NotFoundError":
+    case "OverconstrainedError":
+      return "No camera was found. Plug in a webcam and press Try again.";
+    case "NotReadableError":
+      return "The camera is in use by another app. Close that app and press Try again.";
+    default:
+      return `Camera problem: ${error.message}`;
+  }
+}
 
 async function startCamera() {
   if (stream) return;
+  if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error("camera not available"), { name: "InsecureContext" });
   stream = await navigator.mediaDevices.getUserMedia({
     video: { width: { ideal: 640 }, height: { ideal: 480 } },
     audio: false,
   });
-  for (const video of document.querySelectorAll("video")) video.srcObject = stream;
+  for (const video of $$("video")) video.srcObject = stream;
 }
 
 function stopCamera() {
   stream?.getTracks().forEach((track) => track.stop());
   stream = null;
-  for (const video of document.querySelectorAll("video")) video.srcObject = null;
+  for (const video of $$("video")) video.srcObject = null;
 }
 
+// The explanation shown over the camera area before (or instead of) the browser's own permission prompt.
+function showGate(message, isError = false) {
+  for (const gate of $$(".gate")) {
+    gate.hidden = false;
+    gate.classList.toggle("error", isError);
+    gate.querySelector(".gate-text").textContent = message;
+    gate.querySelector(".start-camera").textContent = isError ? "Try again" : "Start camera";
+  }
+}
+
+function hideGates() {
+  $$(".gate").forEach((gate) => (gate.hidden = true));
+}
+
+async function enableCamera() {
+  try {
+    await startCamera();
+    remember("sessionStorage", "cameraAllowed", "1");
+    hideGates();
+    if (activeTab === "live") liveLoop();
+  } catch (error) {
+    showGate(cameraMessage(error), true);
+  }
+}
+
+// Start the camera if the visitor already agreed in this session; otherwise explain and wait for a click.
+function openCamera() {
+  if (stream) {
+    if (activeTab === "live") liveLoop();
+  } else if (recall("sessionStorage", "cameraAllowed")) {
+    enableCamera();
+  } else {
+    showGate(GATE_TEXT);
+  }
+}
+
+$$(".start-camera").forEach((button) => button.addEventListener("click", enableCamera));
+
 // Match the frame box to the real camera shape (4:3, 16:9, ...).
-for (const video of document.querySelectorAll("video")) {
+for (const video of $$("video")) {
   video.addEventListener("loadedmetadata", () => {
     video.parentElement.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
   });
-}
-
-function cameraError(error) {
-  const blocked = error.name === "NotAllowedError" || error.name === "SecurityError";
-  const message = blocked
-    ? "Camera blocked. Allow camera access for this page in the browser, then switch tabs and come back."
-    : `Camera problem: ${error.message}`;
-  setNotice("#live-notice", message);
-  setNotice("#enroll-notice", message);
 }
 
 // Copy the current video frame into a shrunken JPEG.
@@ -116,39 +242,35 @@ function captureFrame(video) {
 
 // ---------- tabs ----------
 
-let activeTab = "live";
-
 function showTab(name) {
   activeTab = name;
-  document.querySelectorAll(".tab").forEach((button) => button.classList.toggle("active", button.dataset.tab === name));
-  document.querySelectorAll(".panel").forEach((panel) => (panel.hidden = panel.id !== `tab-${name}`));
+  $$(".tab").forEach((button) => button.classList.toggle("active", button.dataset.tab === name));
+  $$(".panel").forEach((panel) => (panel.hidden = panel.id !== `tab-${name}`));
 
   if (name === "live") {
-    liveLoop();
+    refreshEnrolled();
+    openCamera();
   } else if (name === "employees") {
-    startCamera().catch(cameraError);
+    openCamera();
     loadEmployees();
   } else {
     stopCamera(); // the camera light goes off when we are not using it
-    loadAttendance();
+    if (name === "attendance") loadAttendance();
   }
 }
 
-document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => showTab(button.dataset.tab)));
+$$(".tab").forEach((button) => button.addEventListener("click", () => showTab(button.dataset.tab)));
 
 // ---------- live tab ----------
 
-const seen = new Map(); // name -> time first recognized in this browser session
 let liveRunning = false;
 
 async function liveLoop() {
-  if (liveRunning) return;
+  if (liveRunning || !stream) return;
   liveRunning = true;
   try {
-    await startCamera();
-    setNotice("#live-notice", "");
     // One request at a time: we only send the next frame after the previous answer arrives.
-    while (activeTab === "live" && !document.hidden) {
+    while (activeTab === "live" && stream && !document.hidden) {
       const started = performance.now();
       try {
         const frame = await captureFrame($("#live-video"));
@@ -164,8 +286,6 @@ async function liveLoop() {
       }
       await sleep(Math.max(0, FRAME_INTERVAL_MS - (performance.now() - started)));
     }
-  } catch (error) {
-    cameraError(error);
   } finally {
     liveRunning = false;
     if (activeTab !== "live") clearOverlay();
@@ -195,7 +315,9 @@ function setTargets(faces, frame) {
     const score = face.similarity === null ? "" : `  ${face.similarity.toFixed(2)}`;
     return {
       x: frame.width - x - w, // the video is mirrored, so the box is mirrored too
-      y, w, h,
+      y,
+      w,
+      h,
       label: `${known ? face.name : "Unknown"}${score}`,
       colour: known ? "#2ecc71" : "#ffa94d",
     };
@@ -244,19 +366,28 @@ function showLiveStats(faces, roundTripMs) {
   $("#stat-rtt").textContent = `${Math.round(roundTripMs)} ms`;
   $("#stat-faces").textContent = faces.length;
 
+  let changed = false;
   for (const face of faces) {
     if (face.name === null) continue;
     if (face.newly_marked) toast(`${face.name} marked present`);
     if (!seen.has(face.name)) {
       seen.set(face.name, new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-      renderSeen();
+      changed = true;
     }
+  }
+  if (changed) {
+    renderSeen();
+    renderChecklist();
   }
 }
 
 function renderSeen() {
   const list = $("#live-seen");
   list.replaceChildren();
+  if (!seen.size) {
+    list.append(el("li", "muted", "Nobody recognized yet."));
+    return;
+  }
   for (const [name, time] of seen) {
     const row = el("li");
     row.append(el("span", "", `✓ ${name}`), el("span", "muted", time));
@@ -277,7 +408,7 @@ $("#enroll-form").addEventListener("submit", async (event) => {
     form.append("photo", frame.blob, "photo.jpg");
     const employee = await api("/employees", { method: "POST", body: form });
     $("#employee-name").value = "";
-    setNotice("#enroll-notice", `${employee.name} enrolled.`, true);
+    setNotice("#enroll-notice", `${employee.name} enrolled. Go to the Live tab and look at the camera.`, true);
     await loadEmployees();
   } catch (error) {
     setNotice("#enroll-notice", error.message);
@@ -290,8 +421,11 @@ async function loadEmployees() {
   const list = $("#employee-list");
   try {
     const employees = await api("/employees");
+    setEnrolled(employees.length);
+    $("#employee-count").textContent = employees.length ? `(${employees.length})` : "";
+    $("#clear-all").hidden = !employees.length;
     list.replaceChildren();
-    if (!employees.length) list.append(el("li", "muted", "Nobody enrolled yet."));
+    if (!employees.length) list.append(el("li", "muted", "Nobody enrolled yet. Type your name and capture a photo."));
     for (const employee of employees) {
       const remove = el("button", "danger", "Delete");
       remove.addEventListener("click", () => deleteEmployee(employee));
@@ -316,6 +450,21 @@ async function deleteEmployee(employee) {
   }
 }
 
+$("#clear-all").addEventListener("click", async () => {
+  if (!confirm("Delete ALL employees, their face data and the whole attendance history? This cannot be undone.")) return;
+  try {
+    await api("/employees", { method: "DELETE" });
+    seen.clear();
+    renderSeen();
+    remember("sessionStorage", "attendanceChecked", "");
+    setNotice("#enroll-notice", "");
+    await loadEmployees();
+    toast("All data cleared");
+  } catch (error) {
+    setNotice("#enroll-notice", error.message);
+  }
+});
+
 // ---------- attendance tab ----------
 
 async function loadAttendance(quiet = false) {
@@ -327,15 +476,32 @@ async function loadAttendance(quiet = false) {
 
     const body = $("#present-body");
     body.replaceChildren();
+    if (!data.present.length) {
+      const row = el("tr");
+      const cell = el("td", "empty", "Nobody was recognized on this day.");
+      cell.colSpan = 3;
+      row.append(cell);
+      body.append(row);
+    }
     for (const person of data.present) {
       const time = new Date(person.first_seen_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       const row = el("tr");
       row.append(el("td", "", person.name), el("td", "", time), el("td", "", person.confidence.toFixed(2)));
       body.append(row);
     }
+
     const absent = $("#absent-list");
     absent.replaceChildren(...data.absent.map((person) => el("li", "", person.name)));
+    if (!data.absent.length) {
+      const noEmployees = !data.present.length;
+      absent.append(el("li", "muted", noEmployees ? "No employees yet. Enroll someone on the Employees tab." : "Nobody is absent."));
+    }
     setNotice("#att-notice", "");
+
+    if (data.present.length && activeTab === "attendance" && !recall("sessionStorage", "attendanceChecked")) {
+      remember("sessionStorage", "attendanceChecked", "1");
+      renderChecklist();
+    }
   } catch (error) {
     if (!quiet) setNotice("#att-notice", error.message);
   }
@@ -346,5 +512,27 @@ setInterval(() => {
   if (activeTab === "attendance" && !document.hidden) loadAttendance(true);
 }, ATTENDANCE_REFRESH_MS);
 
-setAdmin(Boolean(sessionStorage.getItem("adminMode"))); // remember the choice while this browser tab stays open
+// ---------- welcome card (shown every time the page opens) ----------
+
+function closeWelcome() {
+  $("#welcome").hidden = true;
+}
+
+$("#welcome-ok").addEventListener("click", closeWelcome);
+$("#welcome-guide").addEventListener("click", () => {
+  closeWelcome();
+  showTab("guide");
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !$("#welcome").hidden) closeWelcome();
+});
+
+// ---------- start ----------
+
+setAdmin(adminOn()); // remember the choice while this browser tab stays open
+renderSeen();
+renderChecklist();
+refreshHealth();
+setInterval(refreshHealth, HEALTH_REFRESH_MS);
 showTab("live");
+$("#welcome").hidden = false;

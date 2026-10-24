@@ -40,3 +40,4 @@ class HealthOut(BaseModel):
     database: bool
     models: bool
     model: str
+    threshold: float  # the current match threshold, so the page can explain scores without hard-coding it

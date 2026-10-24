@@ -7,7 +7,7 @@ from typing import Annotated
 import cv2
 import numpy as np
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, UploadFile
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
 from app.ai.face_engine import MODEL_NAME, FaceEngine
@@ -55,7 +55,13 @@ def health(request: Request, response: Response, session: DbSession):
     models = getattr(request.app.state, "engine", None) is not None
     if not (database and models):
         response.status_code = 503
-    return HealthOut(status="ok" if database and models else "unavailable", database=database, models=models, model=MODEL_NAME)
+    return HealthOut(
+        status="ok" if database and models else "unavailable",
+        database=database,
+        models=models,
+        model=MODEL_NAME,
+        threshold=match_threshold(),
+    )
 
 
 @router.post("/employees", status_code=201, response_model=EmployeeOut)
@@ -71,6 +77,13 @@ def create_employee(name: Annotated[str, Form(max_length=100)], photo: UploadFil
 @router.get("/employees", response_model=list[EmployeeOut])
 def list_employees(session: DbSession):
     return session.scalars(select(Employee).order_by(Employee.name)).all()
+
+
+@router.delete("/employees", status_code=204)
+def delete_all_employees(session: DbSession):
+    """Wipe everything (the 'Clear all data' button): employees, and by cascade their embeddings and attendance."""
+    session.execute(delete(Employee))
+    session.commit()
 
 
 @router.delete("/employees/{employee_id}", status_code=204)
