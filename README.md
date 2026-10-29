@@ -1,5 +1,7 @@
 ﻿# Face Attendance
 
+[![CI](https://github.com/YusufMysara/face-attendance/actions/workflows/ci.yml/badge.svg)](https://github.com/YusufMysara/face-attendance/actions/workflows/ci.yml)
+
 A webcam attendance system. Enroll a person with one photo; from then on, anyone who faces the camera is recognized and marked **present** for the day.
 
 It is a backend + AI portfolio project: a FastAPI service that runs face detection and recognition (OpenCV), stores face embeddings in PostgreSQL with pgvector, and serves a small web UI that shows the live camera.
@@ -93,7 +95,7 @@ python -m venv .venv
 .venv\Scripts\uvicorn app.main:app --port 8000
 ```
 
-Tests (need the database container running; they use their own `attendance_test` database, rebuilt from the migrations, and never touch your data):
+Tests (39 tests; need the database container running; they use their own `attendance_test` database, rebuilt from the migrations, and never touch your data). CI runs the same suite on every push and pull request against a `pgvector/pgvector:pg16` service:
 
 ```bash
 .venv\Scripts\python -m pytest
@@ -137,7 +139,24 @@ tests/                pytest suite (real PostgreSQL; only the face engine is fak
 Dockerfile, docker-compose.yml
 ```
 
+## Screenshots
+
+<!-- TODO: add screenshots of the Live, Employees and Attendance tabs here. -->
+
+## Limitations
+
+- **No authentication.** "Try Admin" only reveals the Employees and Attendance tabs; anyone who can open the page can enroll or delete people.
+- **No anti-spoofing / liveness check.** A photo held up to the camera can be recognized as the person in it.
+- **Accuracy is from a partial benchmark.** I measured it on a partial LFW run (2 of 10 folds, 1,200 pairs); the SFace authors publish 99.60% on the full set. The benchmark script is not in this repository.
+- **The 0.40 match threshold was tuned on two people** with one webcam. Other cameras, lighting or larger groups may need a different value (`MATCH_THRESHOLD`).
+- **Built for a single instance.** The face models are loaded once per process behind a lock; there is no setup for running several app instances.
+- **No automated UI tests.** The pytest suite covers the API, services and database; the web UI was tested by hand.
+
 ## Credits and licenses
 
 - Face detection: **YuNet**, face recognition: **SFace**, both from the [OpenCV Zoo](https://github.com/opencv/opencv_zoo) (YuNet is MIT-licensed, SFace is Apache 2.0).
 - Vector search: [pgvector](https://github.com/pgvector/pgvector).
+
+## License
+
+[MIT](LICENSE) © 2026 Youssef Mysara
