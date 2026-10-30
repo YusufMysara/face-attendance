@@ -141,7 +141,19 @@ Dockerfile, docker-compose.yml
 
 ## Screenshots
 
-<!-- TODO: add screenshots of the Live, Employees and Attendance tabs here. -->
+First visit: a welcome card explains the demo in three steps.
+
+![Welcome card on the Live tab](docs/screenshots/welcome.png)
+
+The in-app Guide covers how recognition works, what the colors and scores mean, and what is stored.
+
+![In-app guide](docs/screenshots/guide.png)
+
+The API, from the interactive docs at `/docs`:
+
+![API endpoints](docs/screenshots/api-endpoints.png)
+
+<!-- TODO: add a screenshot or GIF of the Live tab recognizing a face (green box, name and score). -->
 
 ## Limitations
 
