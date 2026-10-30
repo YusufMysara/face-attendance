@@ -153,8 +153,6 @@ The API, from the interactive docs at `/docs`:
 
 ![API endpoints](docs/screenshots/api-endpoints.png)
 
-<!-- TODO: add a screenshot or GIF of the Live tab recognizing a face (green box, name and score). -->
-
 ## Limitations
 
 - **No authentication.** "Try Admin" only reveals the Employees and Attendance tabs; anyone who can open the page can enroll or delete people.
