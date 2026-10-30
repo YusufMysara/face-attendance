@@ -75,7 +75,7 @@ Rules live in the database, not only in the code: no blank names, confidence bet
 
 | Decision | Why |
 |---|---|
-| **OpenCV only** (YuNet + SFace) | Measured against InsightFace: 2 Python packages instead of 29, a 37 MB model download, permissive licenses, and fast enough (see results) |
+| **OpenCV only** (YuNet + SFace) | Measured against InsightFace: 2 Python packages instead of 29, a 37 MB model download, permissive licenses, and fast enough on one CPU (see [Measured results](#measured-results)) |
 | **pgvector** for matching | One database holds employees, embeddings and attendance; deleting an employee deletes their faces with it; the search is one readable SQL query |
 | **Embeddings only**, no photos stored | The system never keeps a picture of anyone |
 | `model` column next to every embedding | An embedding only means something for the model that made it; the search only compares embeddings from the same model |
@@ -83,6 +83,19 @@ Rules live in the database, not only in the code: no blank names, confidence bet
 | Duplicate-face check at enrollment | If recognition would already identify the new face as someone, enrollment is refused (HTTP 409). Otherwise two employees would share one face and only one of them could ever be recognized |
 | Models loaded once, behind a lock | Loading takes ~0.2 s, so it happens at startup. The detector keeps per-image state, so concurrent requests take turns |
 | Plain `def` endpoints | FastAPI runs them in a thread pool, so CPU-heavy face analysis doesn't block the server |
+
+## Measured results
+
+Measured by me locally; numbers vary with the host.
+
+| What | Result |
+|---|---|
+| Server-side time per frame | about 24–45 ms with one face, 40–72 ms with two faces, depending on the host |
+| Memory | about 197–205 MB for the app, 28–73 MB for the database |
+| Hosting size | 1 vCPU / 512 MB fits the whole project |
+| Accuracy | 98.75% on a partial LFW run (2 of 10 folds, 1,200 pairs): 0 wrong accepts, 1.5% missed matches |
+
+The benchmark script is not in this repository.
 
 ## Run it for development
 
